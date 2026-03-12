@@ -625,18 +625,25 @@ export default function App() {
     // Helper for Settings Panel
     const renderSettingsPanel = (config: SimulationConfig, setConfig: React.Dispatch<React.SetStateAction<SimulationConfig>>, label: string) => {
         const pattern = label.includes('A') ? 'A' : 'B';
+        const isA = pattern === 'A';
         return (
-        <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-2">
-                <div className="font-bold text-slate-700 flex items-center gap-2 text-lg">
-                    <span className={`w-4 h-4 rounded-full ${label.includes('A') ? 'bg-indigo-600' : 'bg-emerald-500'}`}></span>
-                    {config.label}
+        <div className={`p-6 rounded-2xl border transition-all duration-300 ${isA ? 'bg-white border-indigo-100 shadow-indigo-100/50 shadow-lg' : 'bg-white border-emerald-100 shadow-emerald-100/50 shadow-lg'}`}>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isA ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
+                        <span className="text-white font-black text-xl">{pattern}</span>
+                    </div>
+                    <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Simulation Pattern</div>
+                        <div className="font-bold text-slate-800 text-lg leading-none">{config.label}</div>
+                    </div>
                 </div>
                 <button 
                     onClick={() => handleResetSettings(pattern as 'A'|'B')}
-                    className="text-sm text-slate-400 hover:text-orange-600 flex items-center gap-1 font-bold"
+                    className="p-2 text-slate-300 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                    title="初期値に戻す"
                 >
-                    <RotateCcw className="w-4 h-4"/> 初期値
+                    <RotateCcw className="w-5 h-5"/>
                 </button>
             </div>
 
@@ -1036,17 +1043,25 @@ export default function App() {
     return (
         <div className="min-h-screen bg-slate-50 py-10 px-6 font-sans text-slate-800">
             <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
-                {/* ... Header ... */}
-                <div className="bg-gradient-to-r from-slate-800 to-indigo-900 px-10 py-8 flex items-center justify-between no-print">
-                    <div className="flex items-center gap-5">
-                        <div className="p-3.5 bg-white/10 rounded-xl backdrop-blur-sm">
-                            <Calculator className="w-10 h-10 text-white" />
+                {/* Header */}
+                <div className="bg-slate-900 px-10 py-12 flex items-center justify-between no-print relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                        <div className="absolute top-[-50%] left-[-10%] w-[120%] h-[200%] bg-[radial-gradient(circle_at_50%_50%,#4f46e5,transparent_70%)]"></div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6 relative z-10">
+                        <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 shadow-2xl">
+                            <Calculator className="w-12 h-12 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">京都バス退職金試算システム</h1>
-                            <div className="flex items-center gap-3">
-                                <span className="text-indigo-200 text-base">比較シミュレーション版</span>
-                                <span className="bg-emerald-500/20 text-emerald-300 text-sm px-2.5 py-0.5 rounded border border-emerald-500/30">A/Bパターン対応</span>
+                            <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">
+                                京都バス <span className="text-indigo-400">退職金試算システム</span>
+                            </h1>
+                            <div className="flex items-center gap-4">
+                                <span className="text-slate-400 text-lg font-medium">比較シミュレーション Ver 2.0</span>
+                                <span className="bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-indigo-500/30">
+                                    A/B Pattern Analysis
+                                </span>
                             </div>
                         </div>
                     </div>
