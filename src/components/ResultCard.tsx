@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, X, Printer, ArrowRight, Info, Lock } from 'lucide-react';
-import { CalculationResult, SimulationConfig } from '../types.ts';
-import { formatDateWithWareki } from '../utils.ts';
+import { CalculationResult, SimulationConfig } from '../types';
+import { formatDateWithWareki } from '../utils';
 
 interface ResultCardProps {
     resA: CalculationResult;

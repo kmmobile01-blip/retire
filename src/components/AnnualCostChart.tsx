@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { BarChart3, Printer, Download, Copy, Check, Image as ImageIcon, Loader2, FileSpreadsheet, Users } from 'lucide-react';
-import { AggregatedYearlyData } from '../types.ts';
+import { AggregatedYearlyData } from '../types';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 

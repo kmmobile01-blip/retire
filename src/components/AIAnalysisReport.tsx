@@ -4,9 +4,9 @@ import { Sparkles, FileText, RefreshCw, Printer, AlertTriangle, Download, Copy, 
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { GoogleGenAI } from "@google/genai";
-import { AggregatedYearlyData, SimulationConfig, CoefSettings, TableRowT2 } from '../types.ts';
-import { deepClone } from '../utils.ts';
-import { T1_CSV_HEADERS, T2_CSV_HEADERS, COEF_CSV_HEADERS } from '../constants.ts';
+import { AggregatedYearlyData, SimulationConfig, CoefSettings, TableRowT2 } from '../types';
+import { deepClone } from '../utils';
+import { T1_CSV_HEADERS, T2_CSV_HEADERS, COEF_CSV_HEADERS } from '../constants';
 
 interface AIAnalysisReportProps {
     data: AggregatedYearlyData[];

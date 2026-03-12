@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import { X, Save, RotateCcw, Table as TableIcon, Layers, BarChart, Upload, FileUp, Clipboard, FileDown, CheckCircle, AlertTriangle } from 'lucide-react';
-import { SimulationConfig, TableRowT1, TableRowT2, CoefSettings } from '../types.ts';
-import { deepClone } from '../utils.ts';
-import { T1_CSV_HEADERS, T2_CSV_HEADERS, COEF_CSV_HEADERS } from '../constants.ts';
+import { SimulationConfig, TableRowT1, TableRowT2, CoefSettings } from '../types';
+import { deepClone } from '../utils';
+import { T1_CSV_HEADERS, T2_CSV_HEADERS, COEF_CSV_HEADERS } from '../constants';
 
 interface MasterEditorModalProps {
     config: SimulationConfig;
