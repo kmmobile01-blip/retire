@@ -1,4 +1,4 @@
-import { TableRowT1, TableRowT2, CoefSettings, EmployeeInputRow } from "./types";
+import { TableRowT1, TableRowT2, CoefSettings, EmployeeInputRow } from "./types.ts";
 
 export const T1_CSV_HEADERS = {
     labels: ['年数', 'T1勤続', 'T1係員', '主任', '係長', '課長', '次長', '部長'],

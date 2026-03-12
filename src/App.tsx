@@ -12,18 +12,18 @@ import {
 import { 
     EmployeeInputRow, TableRowT1, TableRowT2, CoefSettings, 
     CalculationResult, SimulationConfig, FractionConfig, AggregatedYearlyData
-} from './types';
+} from './types.ts';
 import { 
     SAMPLE_EMPLOYEE_DATA, DEFAULT_TABLE_1_1, DEFAULT_TABLE_1_2, DEFAULT_TABLE_1_3, DEFAULT_TABLE_2, 
     DEFAULT_COEF_SETTINGS, T1_CSV_HEADERS, T2_CSV_HEADERS, 
     COEF_CSV_HEADERS, COL_ALIASES, EMPLOYEE_CSV_HEADERS
-} from './constants';
-import { processRow, roundTo2, formatDateWithWareki, parseDate, calculatePeriodYears, deepClone } from './utils';
-import { ResultCard } from './components/ResultCard';
-import { AnnualCostChart } from './components/AnnualCostChart';
-import { HelpModal } from './components/HelpModal';
-import { MasterEditorModal } from './components/MasterEditorModal';
-import { AIAnalysisReport } from './components/AIAnalysisReport';
+} from './constants.ts';
+import { processRow, roundTo2, formatDateWithWareki, parseDate, calculatePeriodYears, deepClone } from './utils.ts';
+import { ResultCard } from './components/ResultCard.tsx';
+import { AnnualCostChart } from './components/AnnualCostChart.tsx';
+import { HelpModal } from './components/HelpModal.tsx';
+import { MasterEditorModal } from './components/MasterEditorModal.tsx';
+import { AIAnalysisReport } from './components/AIAnalysisReport.tsx';
 
 // 旧制度マスタ(T1形式)を新制度マスタ(T2形式)の構造に変換するヘルパー
 const convertT1toT2 = (t1: TableRowT1[]): TableRowT2[] => {

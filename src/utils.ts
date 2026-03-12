@@ -2,8 +2,8 @@
 import { 
     EmployeeInputRow, TableRowT1, TableRowT2, CoefSettings, 
     CalculationResult, CutoffYears, FractionConfig, YearlyDetail, RetirementAgeSettings, TransitionConfig, AdjustmentConfig, UnifyNewSystemConfig
-} from './types';
-import { COL_ALIASES } from './constants';
+} from './types.ts';
+import { COL_ALIASES } from './constants.ts';
 
 export const roundTo2 = (num: number): number => Math.round((num + Number.EPSILON) * 100) / 100;
 export const roundTo4 = (num: number): number => Math.round((num + Number.EPSILON) * 10000) / 10000;
