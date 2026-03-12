@@ -19,11 +19,11 @@ import {
     COEF_CSV_HEADERS, COL_ALIASES, EMPLOYEE_CSV_HEADERS
 } from './constants.ts';
 import { processRow, roundTo2, formatDateWithWareki, parseDate, calculatePeriodYears, deepClone } from './utils.ts';
-import { ResultCard } from './components/ResultCard.tsx';
-import { AnnualCostChart } from './components/AnnualCostChart.tsx';
-import { HelpModal } from './components/HelpModal.tsx';
-import { MasterEditorModal } from './components/MasterEditorModal.tsx';
-import { AIAnalysisReport } from './components/AIAnalysisReport.tsx';
+import { ResultCard } from './components/result-card.tsx';
+import { AnnualCostChart } from './components/annual-cost-chart.tsx';
+import { HelpModal } from './components/help-modal.tsx';
+import { MasterEditorModal } from './components/master-editor-modal.tsx';
+import { AIAnalysisReport } from './components/ai-analysis-report.tsx';
 
 // 旧制度マスタ(T1形式)を新制度マスタ(T2形式)の構造に変換するヘルパー
 const convertT1toT2 = (t1: TableRowT1[]): TableRowT2[] => {
