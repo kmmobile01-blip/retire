@@ -7,7 +7,7 @@ import {
     FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Sliders,
     FileDown, Database, Trash2, ShieldCheck, RotateCcw, Copy, FileText,
     PieChart, Users, Medal, ChevronDown, ChevronUp, UserPlus, Calendar, ArrowRightCircle, HelpCircle,
-    Play, Lock, RefreshCw
+    Play, Lock, RefreshCw, BookOpen
 } from 'lucide-react';
 import { 
     EmployeeInputRow, TableRowT1, TableRowT2, CoefSettings, 
@@ -1069,10 +1069,10 @@ export default function App() {
                          <div className="flex items-center gap-3">
                             <button 
                                 onClick={() => setShowHelp(true)}
-                                className="bg-white/10 hover:bg-white/20 text-indigo-100 hover:text-white px-4 py-2 rounded-lg text-base flex items-center gap-2 transition no-print font-bold"
+                                className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white px-5 py-2.5 rounded-xl text-base flex items-center gap-2 transition no-print font-bold shadow-lg border border-white/20 hover:scale-105"
                             >
-                                <HelpCircle className="w-5 h-5"/>
-                                <span className="hidden sm:inline">使い方・FAQ</span>
+                                <BookOpen className="w-5 h-5"/>
+                                <span className="hidden sm:inline">使用マニュアル</span>
                             </button>
                             <span className={`text-sm font-bold px-4 py-2 rounded-full border border-white/30 text-white ${status.includes('エラー') ? 'bg-red-500/50' : 'bg-white/20'}`}>
                                 {status}
@@ -1267,6 +1267,18 @@ export default function App() {
                     />
                 )}
                 {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
+                {/* Floating Manual Button */}
+                <button
+                    onClick={() => setShowHelp(true)}
+                    className="fixed bottom-8 right-8 z-50 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl hover:shadow-indigo-500/50 transition-all hover:scale-110 flex items-center justify-center group no-print"
+                    title="使用マニュアルを開く"
+                >
+                    <BookOpen className="w-6 h-6" />
+                    <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold text-sm group-hover:ml-2">
+                        マニュアル
+                    </span>
+                </button>
             </div>
         </div>
     );

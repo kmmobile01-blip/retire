@@ -326,7 +326,26 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
     const errorRef = useRef<HTMLDivElement>(null);
     
     // API Key State (Platform provided)
+    const [hasApiKey, setHasApiKey] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<'pro' | 'flash' | 'lite'>('pro');
+
+    // Initialize Key Check
+    useEffect(() => {
+        const checkKey = async () => {
+            if ((window as any).aistudio?.hasSelectedApiKey) {
+                const selected = await (window as any).aistudio.hasSelectedApiKey();
+                setHasApiKey(selected);
+            }
+        };
+        checkKey();
+    }, []);
+
+    const handleOpenKeyDialog = async () => {
+        if ((window as any).aistudio?.openSelectKey) {
+            await (window as any).aistudio.openSelectKey();
+            setHasApiKey(true);
+        }
+    };
     
     // --- UI States for Constraints ---
     const [enableTarget, setEnableTarget] = useState<boolean>(false);
@@ -438,10 +457,20 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
         }
 
         try {
-            const apiKey = process.env.GEMINI_API_KEY;
+            // Check for API key selection
+            if ((window as any).aistudio?.hasSelectedApiKey) {
+                const selected = await (window as any).aistudio.hasSelectedApiKey();
+                if (!selected) {
+                    await (window as any).aistudio.openSelectKey();
+                    setHasApiKey(true);
+                    // Proceeding after opening dialog as per instructions
+                }
+            }
+
+            const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
             
             if (!apiKey) {
-                throw new Error("Gemini APIキーが設定されていません。環境変数 GEMINI_API_KEY を確認してください。");
+                throw new Error("APIキーが設定されていません。APIキー選択ダイアログからキーを選択してください。");
             }
 
             // Using the new GoogleGenAI SDK with retry logic
@@ -1216,10 +1245,45 @@ Year,T1,T2,T3,T4
                         <p className="text-slate-500">Gemini AIがシミュレーション結果を分析し、改善案とマスタ案を作成します。</p>
                     </div>
                 </div>
+                
+                {/* API Key Selection Button */}
+                <button 
+                    onClick={handleOpenKeyDialog}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition border ${!hasApiKey ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <Key className="w-4 h-4"/>
+                    {hasApiKey ? 'APIキー選択済' : 'APIキーを選択してください'}
+                </button>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6 no-print mx-auto space-y-6">
                 
+                {/* API Key Selection Notice */}
+                {!hasApiKey && (
+                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl animate-in fade-in slide-in-from-top-1">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5 shrink-0"/>
+                            <div className="w-full">
+                                <h4 className="font-bold text-orange-800 text-sm mb-1">Google Gemini APIキーの選択</h4>
+                                <p className="text-xs text-orange-700 mb-3 leading-relaxed">
+                                    AI機能を利用するにはAPIキーの選択が必要です。右上のボタンまたは下のボタンからAPIキーを選択してください。<br/>
+                                    ※ 有料のGoogle CloudプロジェクトのAPIキーを選択する必要があります。
+                                </p>
+                                <button 
+                                    onClick={handleOpenKeyDialog}
+                                    className="px-4 py-2 bg-orange-600 text-white rounded text-xs font-bold hover:bg-orange-700 transition flex items-center gap-2"
+                                >
+                                    <Key className="w-4 h-4"/>
+                                    APIキーを選択する
+                                </button>
+                                <p className="mt-2 text-[10px] text-orange-600">
+                                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline">課金設定とAPIキーの詳細についてはこちら</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* 1. コスト削減目標 */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <h4 className="font-bold text-slate-700 flex items-center gap-2 text-lg">
