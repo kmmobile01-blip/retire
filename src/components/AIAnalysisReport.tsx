@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Papa from 'papaparse';
-import { Sparkles, FileText, RefreshCw, Printer, AlertTriangle, Download, Copy, Check, Target, TrendingDown, FileDown, ToggleLeft, ToggleRight, Settings, ArrowRightCircle, ListChecks, Loader2, Bug, Database, FileType, Edit3, Lock, Unlock, Layers, ShieldCheck, Send, MessageSquare, Bot, User as UserIcon, Upload, Key } from 'lucide-react';
+import { Sparkles, FileText, RefreshCw, Printer, AlertTriangle, Download, Copy, Check, Target, TrendingDown, FileDown, ToggleLeft, ToggleRight, Settings, ArrowRightCircle, ListChecks, Loader2, Bug, Database, FileType, Edit3, Lock, Unlock, Layers, ShieldCheck, Send, MessageSquare, Bot, User as UserIcon, Upload, Key, MousePointerClick, CheckCircle, AlertCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { GoogleGenAI } from "@google/genai";
@@ -324,11 +324,33 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const errorRef = useRef<HTMLDivElement>(null);
+    const isCancelledRef = useRef<boolean>(false);
     
     // API Key State (Platform provided)
     const [hasApiKey, setHasApiKey] = useState<boolean>(false);
     const [manualApiKey, setManualApiKey] = useState<string>(() => localStorage.getItem('gemini_manual_api_key') || '');
     const [selectedModel, setSelectedModel] = useState<'pro' | 'flash' | 'lite'>('pro');
+ 
+    // 制度改定日の動的取得
+    const transitionDate = useMemo(() => {
+        return configB.transitionConfig.enabled ? configB.transitionConfig.date : new Date(2026, 3, 1);
+    }, [configB.transitionConfig]);
+
+    const transitionDateStr = useMemo(() => {
+        return `${transitionDate.getFullYear()}年${transitionDate.getMonth() + 1}月${transitionDate.getDate()}日`;
+    }, [transitionDate]);
+
+    const transitionYear = useMemo(() => transitionDate.getFullYear(), [transitionDate]);
+
+    const baseDate = useMemo(() => {
+        const d = new Date(transitionDate);
+        d.setDate(d.getDate() - 1);
+        return d;
+    }, [transitionDate]);
+
+    const baseDateStr = useMemo(() => {
+        return `${baseDate.getFullYear()}年${baseDate.getMonth() + 1}月${baseDate.getDate()}日`;
+    }, [baseDate]);
 
     // Initialize Key Check
     useEffect(() => {
@@ -466,8 +488,19 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
 
     if (!data || data.length === 0) return null;
 
+    const handleCancel = () => {
+        isCancelledRef.current = true;
+        setIsLoading(false);
+        setMessages(prev => [...prev, { 
+            role: 'model', 
+            text: "⚠️ 分析を中止しました。", 
+            timestamp: new Date() 
+        }]);
+    };
+
     const callAI = async (currentMessages: ChatMessage[], newPrompt: string, isInitial: boolean) => {
         setIsLoading(true);
+        isCancelledRef.current = false;
         setError(null);
         if (isInitial) {
             setSuccessMsg(null);
@@ -482,16 +515,21 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
         }
 
         try {
+            if (isCancelledRef.current) return;
+
             // Check for API key selection
             const aistudio = (window as any).aistudio || (window.parent as any).aistudio;
             if (aistudio && typeof aistudio.hasSelectedApiKey === 'function' && !manualApiKey) {
                 const selected = await aistudio.hasSelectedApiKey();
+                if (isCancelledRef.current) return;
                 if (!selected && typeof aistudio.openSelectKey === 'function') {
                     await aistudio.openSelectKey();
                     setHasApiKey(true);
                     // Proceeding after opening dialog as per instructions
                 }
             }
+
+            if (isCancelledRef.current) return;
 
             const apiKey = manualApiKey || process.env.API_KEY || process.env.GEMINI_API_KEY;
             
@@ -527,6 +565,7 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
                               'gemini-3.1-flash-lite-preview';
 
             while (attempt < maxRetries) {
+                if (isCancelledRef.current) return;
                 try {
                     response = await ai.models.generateContent({
                         model: modelName,
@@ -535,8 +574,10 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
                             temperature: 0.2,
                         }
                     });
+                    if (isCancelledRef.current) return;
                     break; // Success
                 } catch (e: any) {
+                    if (isCancelledRef.current) return;
                     attempt++;
                     const isRetryable = e.message.includes('429') || e.message.includes('503') || e.message.includes('500');
                     if (attempt >= maxRetries || !isRetryable) {
@@ -547,12 +588,16 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
                 }
             }
 
+            if (isCancelledRef.current) return;
+
             if (!response || !response.text) throw new Error("レポートの生成に失敗しました（応答が空です）。");
             const text = response.text;
             
             // Parse for Data
             const { csvMap: extractedCsv, proposedSettings: extractedSettings } = parseResponseAndExtractData(text);
             const hasData = Object.keys(extractedCsv).length > 0 || !!extractedSettings;
+
+            if (isCancelledRef.current) return;
 
             // If found data, update global state for "Apply" button
             if (hasData) {
@@ -573,6 +618,7 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
             }
 
         } catch (e: any) {
+            if (isCancelledRef.current) return;
             console.error(e);
             let msg = e.message || "予期せぬエラーが発生しました。";
             
@@ -594,23 +640,22 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
                 setMessages(prev => [...prev, { role: 'model', text: `[エラー] ${msg}`, timestamp: new Date() }]);
             }
         } finally {
-            setIsLoading(false);
+            if (!isCancelledRef.current) setIsLoading(false);
         }
     };
 
     const handleGenerateReport = () => {
-        // ... (Existing prompt generation logic) ...
-        // 削減目標期間（2026-2035）のB案平均コスト算出
-        const targetPeriodData = data.filter(d => d.year >= 2026 && d.year <= 2035);
+        // 削減目標期間（改定年〜10年間）のB案平均コスト算出
+        const targetPeriodData = data.filter(d => d.year >= transitionYear && d.year <= transitionYear + 9);
         const totalCostBTarget = targetPeriodData.reduce((sum, d) => sum + Math.round(d.B.total / 1000), 0);
         const avgCostBTarget = targetPeriodData.length > 0 ? Math.round(totalCostBTarget / targetPeriodData.length) : 0;
-
+ 
         let targetInstruction = "";
         if (enableTarget) {
             targetInstruction = `
 **【重要：コスト削減目標】**
-経営層より、**「2026年度〜2035年度（向こう10年間）において、現行制度（B案）の毎年の引当金繰入額に対し、平均でおよそ ${targetReductionRange.min}% ～ ${targetReductionRange.max}% の削減」** を達成する制度設計が求められています。
-(参考: 目標期間(2026-2035)におけるB案の年間平均引当額は約 ${avgCostBTarget.toLocaleString()} 千円です。ここから ${targetReductionRange.min}% ～ ${targetReductionRange.max}% 程度の削減を目指してください)
+**「${transitionYear}年度〜${transitionYear + 9}年度（向こう10年間）において、現行制度（B案）の毎年の引当金繰入額に対し、平均でおよそ ${targetReductionRange.min}% ～ ${targetReductionRange.max}% の削減」** を達成する制度設計が求められています。
+(参考: 目標期間(${transitionYear}-${transitionYear + 9})におけるB案の年間平均引当額は約 ${avgCostBTarget.toLocaleString()} 千円です。ここから ${targetReductionRange.min}% ～ ${targetReductionRange.max}% 程度の削減を目指してください)
 `;
         } else {
             targetInstruction = `
@@ -646,7 +691,7 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
             [COEF_CSV_HEADERS.labels[4]]: r.t4,
         })));
 
-        // Points
+        // ポイント
         const refT1 = prepareCsv(configB.masterData1_1, T1_CSV_HEADERS.keys, T1_CSV_HEADERS.labels);
         const refT2 = prepareCsv(configB.masterData1_2, T1_CSV_HEADERS.keys, T1_CSV_HEADERS.labels);
         const refT3 = prepareCsv(configB.masterData1_3, T1_CSV_HEADERS.keys, T1_CSV_HEADERS.labels);
@@ -709,7 +754,7 @@ ${parts.map(p => "     " + p).join('\n')}
    以下の指示に従って変更内容を決定してください。
    ※「全制度共通」の設定がありますが、**各制度区分ごとの個別指示がある場合は、そちらを最優先**してください。
    ※**変更禁止項目**については、必ず後述の【参照データ】（現行B案）と同一の値を出力してください。勝手な変更は許されません。
-
+ 
 ${buildConstraintPrompt('旧制度① (Type 1)', constraints.type1)}
 ${buildConstraintPrompt('旧制度② (Type 2)', constraints.type2)}
 ${buildConstraintPrompt('旧制度③ (Type 3)', constraints.type3)}
@@ -740,8 +785,8 @@ ${buildConstraintPrompt('新制度 (Type 4)', constraints.type4)}
 
 **システム制約（前提条件）**:
 - 当社は「完全ポイント制」です。基本給ベースアップは退職金に影響しません。
-- 退職金 = (勤続Pt + 職能Pt + 考課Pt) × 単価 × 支給率係数
-- 分析対象期間: 2026年度〜2045年度
+- 退職金 = (勤続Pt + 職能Pt +考課Pt) × 単価 × 支給率係数
+- 分析対象期間: ${transitionYear}年度〜${transitionYear + 19}年度
 - **現行制度（B案）の標準考課ポイント**: ${configB.defaultYearlyEval} Pt/年
 
 **【参照データ: 現行制度(B案)のマスタ】**
@@ -778,7 +823,7 @@ ${refT4}
 以下の条件を**すべて**満たす制度改定案（A案）を作成してください。
 
 1. **制度改定日**: 
-   - **2026年4月1日** (移行基準日: 2026年3月31日)。
+   - **${transitionDateStr}** (移行基準日: ${baseDateStr})。
 
 ${constraintPrompt}
 
@@ -927,9 +972,9 @@ Year,T1,T2,T3,T4
             // 2. Clone Config
             const newConfigA = deepClone(configA);
             newConfigA.transitionConfig.enabled = true;
-            newConfigA.transitionConfig.date = new Date(2026, 2, 31); // 2026-03-31
-            processLog.push("・初期化: ConfigAを複製, 移行基準日を2026/3/31(改定日4/1)に設定");
-
+            newConfigA.transitionConfig.date = new Date(transitionDate);
+            processLog.push(`・初期化: ConfigAを複製, 移行基準日を${baseDateStr}(改定日${transitionDateStr})に設定`);
+ 
             let anyApplied = false;
             let appliedStatus = { coef: false, t1: false, t2: false, t3: false, t4: false, param: false };
 
@@ -1382,7 +1427,7 @@ Year,T1,T2,T3,T4
                         </div>
                         <div className="flex-1 bg-slate-50 p-4 rounded-lg text-xs text-slate-500 leading-relaxed border border-slate-200">
                             <span className="font-bold text-indigo-600">AIへの指示:</span><br/>
-                            B案と比較して、2026-2035年度の期間で年間の引当金費用を<span className="font-bold">{targetReductionRange.min}% ～ {targetReductionRange.max}%</span>程度抑制できるような案を提案させます。<br/>※ 改定日は<span className="font-bold">2026年4月1日</span>で固定されます。
+                            B案と比較して、{transitionYear}-{transitionYear + 9}年度の期間で年間の引当金費用を<span className="font-bold">{targetReductionRange.min}% ～ {targetReductionRange.max}%</span>程度抑制できるような案を提案させます。<br/>※ 改定日は<span className="font-bold">{transitionDateStr}</span>で固定されます。
                         </div>
                     </div>
                 )}
@@ -1544,17 +1589,25 @@ Year,T1,T2,T3,T4
                         <select 
                             value={selectedModel}
                             onChange={(e) => setSelectedModel(e.target.value as any)}
-                            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
+                            disabled={isLoading}
+                            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm disabled:bg-slate-50 disabled:text-slate-400"
                         >
                             <option value="pro">PRO (高性能・推論重視)</option>
                             <option value="flash">FLASH (高速・バランス)</option>
                             <option value="lite">LITE (最速・軽量)</option>
                         </select>
                     </div>
-                    <button onClick={handleGenerateReport} disabled={isLoading} className={`px-8 py-4 rounded-xl font-bold text-lg shadow-lg flex items-center gap-3 transition-all ${isLoading ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-105 hover:shadow-xl'}`}>
-                        {isLoading ? <RefreshCw className="w-6 h-6 animate-spin" /> : <FileText className="w-6 h-6" />}
-                        {isLoading ? 'AI分析を実行中...' : '分析レポートを作成する'}
-                    </button>
+                    {isLoading ? (
+                        <button onClick={handleCancel} className="px-8 py-4 rounded-xl font-bold text-lg shadow-lg flex items-center gap-3 transition-all bg-red-500 text-white hover:bg-red-600 hover:scale-105">
+                            <AlertCircle className="w-6 h-6" />
+                            分析を中止する
+                        </button>
+                    ) : (
+                        <button onClick={handleGenerateReport} className="px-8 py-4 rounded-xl font-bold text-lg shadow-lg flex items-center gap-3 transition-all bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:scale-105 hover:shadow-xl">
+                            <FileText className="w-6 h-6" />
+                            分析レポートを作成する
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -1650,20 +1703,33 @@ Year,T1,T2,T3,T4
                                     className="w-full p-3 pr-24 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none h-14"
                                 />
                                 <div className="absolute right-2 top-2 flex items-center gap-1">
-                                    <button 
-                                        onClick={() => fileUploadRef.current?.click()}
-                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
-                                        title="テキストファイルを読み込む"
-                                    >
-                                        <Upload className="w-5 h-5" />
-                                    </button>
-                                    <button 
-                                        onClick={handleSendMessage}
-                                        disabled={!chatInput.trim() || isLoading}
-                                        className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
-                                    >
-                                        <Send className="w-5 h-5" />
-                                    </button>
+                                    {isLoading ? (
+                                        <button 
+                                            onClick={handleCancel}
+                                            className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center gap-1 px-3"
+                                            title="中止"
+                                        >
+                                            <AlertCircle className="w-5 h-5" />
+                                            <span className="text-xs font-bold">中止</span>
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                onClick={() => fileUploadRef.current?.click()}
+                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
+                                                title="テキストファイルを読み込む"
+                                            >
+                                                <Upload className="w-5 h-5" />
+                                            </button>
+                                            <button 
+                                                onClick={handleSendMessage}
+                                                disabled={!chatInput.trim() || isLoading}
+                                                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
+                                            >
+                                                <Send className="w-5 h-5" />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1686,7 +1752,7 @@ Year,T1,T2,T3,T4
                                 
                                 <p className="text-sm text-slate-600 mb-4">
                                     AIがチャットで提案した最新の改善案（マスタデータ・係数・各種パラメータ）を<span className="font-bold text-indigo-700">パターンA（変更案）</span>に反映し、シミュレーションを実行します。
-                                    <br/><span className="text-xs text-slate-400">※改定日は自動的に 2026/4/1 に設定されます。</span>
+                                    <br/><span className="text-xs text-slate-400">※改定日は自動的に {transitionDateStr} に設定されます。</span>
                                 </p>
                                 
                                 {hasAnyCsv ? (

@@ -421,18 +421,26 @@ export const processRow = (
 
         let rankCapYearCurrent = 999;
         if (useOldSystemTable) {
-             if (typeName === '旧制度①') rankCapYearCurrent = cutoffYears.type1;
-             else if (typeName === '旧制度②') rankCapYearCurrent = cutoffYears.type2;
-             else if (typeName === '旧制度③') rankCapYearCurrent = cutoffYears.type3;
+             if (typeKey === 'type1') rankCapYearCurrent = cutoffYears.type1;
+             else if (typeKey === 'type2') rankCapYearCurrent = cutoffYears.type2;
+             else if (typeKey === 'type3') rankCapYearCurrent = cutoffYears.type3;
              else rankCapYearCurrent = 35; 
         }
+
+        // 将来の上限年数
+        let rankCapYearFuture = 999;
+        const targetCutoffFuture = cutoffYearsFuture || cutoffYears;
+        if (typeKey === 'type1') rankCapYearFuture = targetCutoffFuture.type1;
+        else if (typeKey === 'type2') rankCapYearFuture = targetCutoffFuture.type2;
+        else if (typeKey === 'type3') rankCapYearFuture = targetCutoffFuture.type3;
+        else rankCapYearFuture = 999;
 
         const targetFutureMaster = masterDataFuture[typeKey];
 
         const currentYearsFloat = calculatePeriodYears(pointCalcBaseDate, referenceDate, getMode('los'));
         const totalLosAtCurrent = calculatePts(currentYearsFloat, 'los', useOldSystemTable, getMode('los'));
 
-        const cappedCurrentYearsRank = useOldSystemTable ? Math.min(currentYearsFloat, rankCapYearCurrent) : currentYearsFloat;
+        const cappedCurrentYearsRank = Math.min(currentYearsFloat, rankCapYearCurrent);
         const totalRankAtCurrent = calculatePts(cappedCurrentYearsRank, rankKeyNew, useOldSystemTable, getMode('rank'));
 
         let totalLosAtRetire = 0;
@@ -442,7 +450,7 @@ export const processRow = (
             const yearsAtFreezeLos = calculatePeriodYears(pointCalcBaseDate, d2026_03_31, getMode('los'));
             const yearsAtFreezeRank = calculatePeriodYears(pointCalcBaseDate, d2026_03_31, getMode('rank'));
             
-            const cappedFreezeYearsRank = useOldSystemTable ? Math.min(yearsAtFreezeRank, rankCapYearCurrent) : yearsAtFreezeRank;
+            const cappedFreezeYearsRank = Math.min(yearsAtFreezeRank, rankCapYearCurrent);
             
             totalLosAtRetire = calculatePts(yearsAtFreezeLos, 'los', useOldSystemTable, getMode('los'));
             totalRankAtRetire = calculatePts(cappedFreezeYearsRank, rankKeyNew, useOldSystemTable, getMode('rank'));
@@ -453,10 +461,7 @@ export const processRow = (
             
             const losAtTransition = calculatePts(yearsAtTransitionLos, 'los', useOldSystemTable, getMode('los'));
             
-            let cappedRankYearsAtTransition = yearsAtTransitionRank;
-            if (useOldSystemTable) {
-                cappedRankYearsAtTransition = Math.min(yearsAtTransitionRank, rankCapYearCurrent);
-            }
+            const cappedRankYearsAtTransition = Math.min(yearsAtTransitionRank, rankCapYearCurrent);
             const rankAtTransition = calculatePts(cappedRankYearsAtTransition, rankKeyNew, useOldSystemTable, getMode('rank'));
 
             const yearsAtRetireLos = calculatePeriodYears(pointCalcBaseDate, retireDateLos, getMode('los'));
@@ -466,8 +471,10 @@ export const processRow = (
             const losNewAtTransition = calculatePts(yearsAtTransitionLos, 'los', false, getMode('los'), targetFutureMaster);
             const incLosFuture = Math.max(0, losNewAtRetire - losNewAtTransition);
 
-            const rankNewAtRetire = calculatePts(yearsAtRetireRank, rankKeyNew, false, getMode('rank'), targetFutureMaster);
-            const rankNewAtTransition = calculatePts(yearsAtTransitionRank, rankKeyNew, false, getMode('rank'), targetFutureMaster);
+            const cappedRetireYearsRankFuture = Math.min(yearsAtRetireRank, rankCapYearFuture);
+            const cappedTransitionYearsRankFuture = Math.min(yearsAtTransitionRank, rankCapYearFuture);
+            const rankNewAtRetire = calculatePts(cappedRetireYearsRankFuture, rankKeyNew, false, getMode('rank'), targetFutureMaster);
+            const rankNewAtTransition = calculatePts(cappedTransitionYearsRankFuture, rankKeyNew, false, getMode('rank'), targetFutureMaster);
             const incRankFuture = Math.max(0, rankNewAtRetire - rankNewAtTransition);
 
             totalLosAtRetire = losAtTransition + incLosFuture;
@@ -477,7 +484,7 @@ export const processRow = (
             const retirementYearsFloatLos = calculatePeriodYears(pointCalcBaseDate, retireDateLos, getMode('los'));
             const retirementYearsFloatRank = calculatePeriodYears(pointCalcBaseDate, retireDateRank, getMode('rank'));
             
-            const cappedRetirementYearsRank = useOldSystemTable ? Math.min(retirementYearsFloatRank, rankCapYearCurrent) : retirementYearsFloatRank;
+            const cappedRetirementYearsRank = Math.min(retirementYearsFloatRank, rankCapYearCurrent);
             
             totalLosAtRetire = calculatePts(retirementYearsFloatLos, 'los', useOldSystemTable, getMode('los'));
             totalRankAtRetire = calculatePts(cappedRetirementYearsRank, rankKeyNew, useOldSystemTable, getMode('rank'));
@@ -605,23 +612,27 @@ export const processRow = (
         const calcPtAt = (yearsF: number, dateObj: Date, key: 'los'|'rank', rankK: string, mode: string) => {
             if ((useAdjustment || useUnify) && dateObj > d2026_03_31) {
                 const freezeYears = calculatePeriodYears(pointCalcBaseDate, d2026_03_31, mode);
-                const cap = (key === 'rank' && useOldSystemTable) ? rankCapYearCurrent : 999;
+                const cap = (key === 'rank') ? rankCapYearCurrent : 999;
                 return calculatePts(key==='rank' ? Math.min(freezeYears, cap) : freezeYears, key === 'los'?'los':rankK, useOldSystemTable, mode);
             }
 
             if (useTransition && transitionDate && dateObj > transitionDate) {
                 const yearsAtTrans = calculatePeriodYears(pointCalcBaseDate, transitionDate, mode);
                 let effYearsBase = yearsAtTrans;
-                if (key === 'rank' && useOldSystemTable) {
+                if (key === 'rank') {
                      effYearsBase = Math.min(yearsAtTrans, rankCapYearCurrent);
                 }
                 const basePtKey = (key === 'rank' && !useOldSystemTable) ? rankK : key;
                 const basePt = calculatePts(effYearsBase, basePtKey, useOldSystemTable, mode);
-                const newTotal = calculatePts(yearsF, key === 'los'?'los':rankKeyNew, false, mode, targetFutureMaster);
-                const newBase = calculatePts(yearsAtTrans, key === 'los'?'los':rankKeyNew, false, mode, targetFutureMaster);
+                
+                const effYearsFuture = (key === 'rank') ? Math.min(yearsF, rankCapYearFuture) : yearsF;
+                const effYearsTransFuture = (key === 'rank') ? Math.min(yearsAtTrans, rankCapYearFuture) : yearsAtTrans;
+                
+                const newTotal = calculatePts(effYearsFuture, key === 'los'?'los':rankKeyNew, false, mode, targetFutureMaster);
+                const newBase = calculatePts(effYearsTransFuture, key === 'los'?'los':rankKeyNew, false, mode, targetFutureMaster);
                 return basePt + Math.max(0, newTotal - newBase);
             } else {
-                const cap = (key === 'rank' && useOldSystemTable) ? rankCapYearCurrent : 999;
+                const cap = (key === 'rank') ? rankCapYearCurrent : 999;
                 const effYears = (key === 'rank') ? Math.min(yearsF, cap) : yearsF;
                 return calculatePts(effYears, key === 'los'?'los':rankK, useOldSystemTable, mode);
             }
@@ -753,8 +764,11 @@ export const processRow = (
                     } else if (useUnify) {
                         const unifyTargetMaster = (useTransition && transitionDate && new Date(y, 3, 1) > transitionDate) ? masterDataFuture.type4 : masterData2;
                         
+                        const yearsRank = calculatePeriodYears(pointCalcBaseDate, rankCalcEndDate, getMode('rank'));
+                        const cappedYearsRank = Math.min(yearsRank, rankCapYearFuture);
+
                         const nextTheoryLosNewManual = calculatePts(nextYearsFloat, 'los', false, getMode('los'), unifyTargetMaster);
-                        const nextTheoryRankNewManual = calculatePts(calculatePeriodYears(pointCalcBaseDate, rankCalcEndDate, getMode('rank')), rankKeyNew, false, getMode('rank'), unifyTargetMaster);
+                        const nextTheoryRankNewManual = calculatePts(cappedYearsRank, rankKeyNew, false, getMode('rank'), unifyTargetMaster);
                         
                         const incLosNew = Math.max(0, nextTheoryLosNewManual - unifyTrackingLos);
                         const incRankNew = Math.max(0, nextTheoryRankNewManual - unifyTrackingRank);

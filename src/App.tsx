@@ -7,7 +7,7 @@ import {
     FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Sliders,
     FileDown, Database, Trash2, ShieldCheck, RotateCcw, Copy, FileText,
     PieChart, Users, Medal, ChevronDown, ChevronUp, UserPlus, Calendar, ArrowRightCircle, HelpCircle,
-    Play, Lock, RefreshCw, BookOpen
+    Play, Lock, RefreshCw, BookOpen, MessageSquare, X
 } from 'lucide-react';
 import { 
     EmployeeInputRow, TableRowT1, TableRowT2, CoefSettings, 
@@ -24,6 +24,8 @@ import { AnnualCostChart } from './components/AnnualCostChart';
 import { HelpModal } from './components/HelpModal';
 import { MasterEditorModal } from './components/MasterEditorModal';
 import { AIAnalysisReport } from './components/AIAnalysisReport';
+import { AIChatMode } from './components/AIChatMode';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // 旧制度マスタ(T1形式)を新制度マスタ(T2形式)の構造に変換するヘルパー
 const convertT1toT2 = (t1: TableRowT1[]): TableRowT2[] => {
@@ -80,6 +82,7 @@ export default function App() {
     // --- State ---
     const [data, setData] = useState<EmployeeInputRow[]>([]); 
     const [showHelp, setShowHelp] = useState<boolean>(false);
+    const [showChatMode, setShowChatMode] = useState<boolean>(false);
     
     // Deep Clone for independence
     const [configA, setConfigA] = useState<SimulationConfig>({ 
@@ -705,11 +708,12 @@ export default function App() {
                                 <Calendar className="w-5 h-5 absolute left-3 top-2.5 text-slate-500"/>
                                 <input 
                                     type="date" 
-                                    value={(config.transitionConfig.date instanceof Date && !isNaN(config.transitionConfig.date.getTime())) ? config.transitionConfig.date.toISOString().split('T')[0] : ''}
+                                    value={(config.transitionConfig.date instanceof Date && !isNaN(config.transitionConfig.date.getTime())) ? 
+                                        `${config.transitionConfig.date.getFullYear()}-${String(config.transitionConfig.date.getMonth() + 1).padStart(2, '0')}-${String(config.transitionConfig.date.getDate()).padStart(2, '0')}` : ''}
                                     onChange={(e) => {
-                                        const d = new Date(e.target.value);
-                                        if (!isNaN(d.getTime())) {
-                                            setConfig({ ...config, transitionConfig: { ...config.transitionConfig, date: d } });
+                                        const [y, m, d] = e.target.value.split('-').map(Number);
+                                        if (y && m && d) {
+                                            setConfig({ ...config, transitionConfig: { ...config.transitionConfig, date: new Date(y, m - 1, d) } });
                                         }
                                     }}
                                     className="w-full pl-10 p-2.5 text-base border-slate-300 rounded shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -1071,6 +1075,13 @@ export default function App() {
                                 <span className="bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-indigo-500/30">
                                     A/B Pattern Analysis
                                 </span>
+                                <button 
+                                    onClick={() => setShowChatMode(true)}
+                                    className="bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-emerald-500/30 hover:bg-emerald-500/30 transition flex items-center gap-1"
+                                >
+                                    <MessageSquare className="w-3 h-3" />
+                                    AI Chat Mode
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1242,12 +1253,14 @@ export default function App() {
                     
                     {/* Section 5: AI Analysis Report (New) */}
                     <div className="report-section">
-                        <AIAnalysisReport 
-                            data={aggregatedData} 
-                            configA={configA} 
-                            configB={configB} 
-                            onApplyProposal={handleApplyAIProposal}
-                        />
+                        <ErrorBoundary>
+                            <AIAnalysisReport 
+                                data={aggregatedData} 
+                                configA={configA} 
+                                configB={configB} 
+                                onApplyProposal={handleApplyAIProposal}
+                            />
+                        </ErrorBoundary>
                     </div>
 
                     {/* Footer / Info */}
@@ -1276,18 +1289,38 @@ export default function App() {
                     />
                 )}
                 {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+                
+                <AIChatMode 
+                    isOpen={showChatMode} 
+                    onClose={() => setShowChatMode(false)} 
+                    data={aggregatedData}
+                    configA={configA}
+                    configB={configB}
+                />
 
                 {/* Floating Manual Button */}
-                <button
-                    onClick={() => setShowHelp(true)}
-                    className="fixed bottom-8 right-8 z-50 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-2xl hover:shadow-indigo-500/50 transition-all hover:scale-110 flex items-center justify-center group no-print"
-                    title="使用マニュアルを開く"
-                >
-                    <BookOpen className="w-6 h-6" />
-                    <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold text-sm group-hover:ml-2">
-                        マニュアル
-                    </span>
-                </button>
+                <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-3 no-print">
+                    <button
+                        onClick={() => setShowChatMode(!showChatMode)}
+                        className={`p-4 rounded-full shadow-2xl transition-all hover:scale-110 flex items-center justify-center group ${showChatMode ? 'bg-slate-800 text-white ring-4 ring-slate-200' : 'bg-indigo-600 text-white hover:shadow-indigo-500/50'}`}
+                        title="AIチャットを開く"
+                    >
+                        {showChatMode ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+                        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold text-sm group-hover:ml-2 text-white">
+                            AIチャット
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setShowHelp(true)}
+                        className="bg-white text-slate-600 p-4 rounded-full shadow-xl hover:bg-slate-50 transition-all hover:scale-110 flex items-center justify-center group border border-slate-200"
+                        title="使用マニュアルを開く"
+                    >
+                        <BookOpen className="w-6 h-6" />
+                        <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold text-sm group-hover:ml-2">
+                            マニュアル
+                        </span>
+                    </button>
+                </div>
             </div>
         </div>
     );
