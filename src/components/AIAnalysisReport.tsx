@@ -327,23 +327,48 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
     
     // API Key State (Platform provided)
     const [hasApiKey, setHasApiKey] = useState<boolean>(false);
+    const [manualApiKey, setManualApiKey] = useState<string>(() => localStorage.getItem('gemini_manual_api_key') || '');
     const [selectedModel, setSelectedModel] = useState<'pro' | 'flash' | 'lite'>('pro');
 
     // Initialize Key Check
     useEffect(() => {
         const checkKey = async () => {
-            if ((window as any).aistudio?.hasSelectedApiKey) {
-                const selected = await (window as any).aistudio.hasSelectedApiKey();
-                setHasApiKey(selected);
+            try {
+                const aistudio = (window as any).aistudio || (window.parent as any).aistudio;
+                if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+                    const selected = await aistudio.hasSelectedApiKey();
+                    setHasApiKey(selected);
+                }
+            } catch (e) {
+                console.error("Error checking API key status:", e);
             }
         };
         checkKey();
     }, []);
 
+    const handleManualKeyChange = (val: string) => {
+        setManualApiKey(val);
+        localStorage.setItem('gemini_manual_api_key', val);
+    };
+
     const handleOpenKeyDialog = async () => {
-        if ((window as any).aistudio?.openSelectKey) {
-            await (window as any).aistudio.openSelectKey();
-            setHasApiKey(true);
+        try {
+            // Try to find aistudio object on window or parent window
+            const aistudio = (window as any).aistudio || (window.parent as any).aistudio;
+            
+            if (aistudio && typeof aistudio.openSelectKey === 'function') {
+                await aistudio.openSelectKey();
+                // Assume success as per instructions to avoid race conditions
+                setHasApiKey(true);
+                setSuccessMsg("APIキー選択ダイアログを表示しました。");
+                setTimeout(() => setSuccessMsg(null), 3000);
+            } else {
+                console.error("AI Studio API (openSelectKey) not found");
+                setError("APIキー選択機能がこの環境で利用できません。ブラウザを更新してお試しください。");
+            }
+        } catch (e: any) {
+            console.error("Error opening key dialog:", e);
+            setError("APIキー選択中にエラーが発生しました: " + e.message);
         }
     };
     
@@ -458,19 +483,20 @@ export const AIAnalysisReport: React.FC<AIAnalysisReportProps> = ({ data, config
 
         try {
             // Check for API key selection
-            if ((window as any).aistudio?.hasSelectedApiKey) {
-                const selected = await (window as any).aistudio.hasSelectedApiKey();
-                if (!selected) {
-                    await (window as any).aistudio.openSelectKey();
+            const aistudio = (window as any).aistudio || (window.parent as any).aistudio;
+            if (aistudio && typeof aistudio.hasSelectedApiKey === 'function' && !manualApiKey) {
+                const selected = await aistudio.hasSelectedApiKey();
+                if (!selected && typeof aistudio.openSelectKey === 'function') {
+                    await aistudio.openSelectKey();
                     setHasApiKey(true);
                     // Proceeding after opening dialog as per instructions
                 }
             }
 
-            const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+            const apiKey = manualApiKey || process.env.API_KEY || process.env.GEMINI_API_KEY;
             
             if (!apiKey) {
-                throw new Error("APIキーが設定されていません。APIキー選択ダイアログからキーを選択してください。");
+                throw new Error("APIキーが設定されていません。APIキーを貼り付けるか、選択ダイアログからキーを選択してください。");
             }
 
             // Using the new GoogleGenAI SDK with retry logic
@@ -1258,26 +1284,55 @@ Year,T1,T2,T3,T4
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6 no-print mx-auto space-y-6">
                 
-                {/* API Key Selection Notice */}
-                {!hasApiKey && (
+                {/* API Key Input Section */}
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                                <Key className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-slate-800">Gemini APIキーの設定</h4>
+                                <p className="text-xs text-slate-500">APIキーを直接入力するか、ダイアログから選択してください。</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleOpenKeyDialog}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm"
+                        >
+                            <MousePointerClick className="w-4 h-4"/>
+                            ダイアログから選択
+                        </button>
+                    </div>
+                    
+                    <div className="relative">
+                        <input 
+                            type="password"
+                            value={manualApiKey}
+                            onChange={(e) => handleManualKeyChange(e.target.value)}
+                            placeholder="ここにAPIキーを貼り付けてください (AI Studio等で取得したキー)"
+                            className="w-full pl-4 pr-12 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                        />
+                        <div className="absolute right-4 top-3.5 text-slate-400">
+                            {manualApiKey ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <Lock className="w-5 h-5" />}
+                        </div>
+                    </div>
+                    <p className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        入力したキーはブラウザにのみ保存されます。
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline ml-2">APIキーの取得はこちら</a>
+                    </p>
+                </div>
+
+                {/* API Key Selection Notice (Only show if no key at all) */}
+                {!hasApiKey && !manualApiKey && (
                     <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl animate-in fade-in slide-in-from-top-1">
                         <div className="flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5 shrink-0"/>
                             <div className="w-full">
-                                <h4 className="font-bold text-orange-800 text-sm mb-1">Google Gemini APIキーの選択</h4>
-                                <p className="text-xs text-orange-700 mb-3 leading-relaxed">
-                                    AI機能を利用するにはAPIキーの選択が必要です。右上のボタンまたは下のボタンからAPIキーを選択してください。<br/>
-                                    ※ 有料のGoogle CloudプロジェクトのAPIキーを選択する必要があります。
-                                </p>
-                                <button 
-                                    onClick={handleOpenKeyDialog}
-                                    className="px-4 py-2 bg-orange-600 text-white rounded text-xs font-bold hover:bg-orange-700 transition flex items-center gap-2"
-                                >
-                                    <Key className="w-4 h-4"/>
-                                    APIキーを選択する
-                                </button>
-                                <p className="mt-2 text-[10px] text-orange-600">
-                                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline">課金設定とAPIキーの詳細についてはこちら</a>
+                                <h4 className="font-bold text-orange-800 text-sm mb-1">APIキーが未設定です</h4>
+                                <p className="text-xs text-orange-700 leading-relaxed">
+                                    AI分析を実行するには、上記の入力欄にAPIキーを貼り付けるか、選択ダイアログからキーを選択してください。
                                 </p>
                             </div>
                         </div>
