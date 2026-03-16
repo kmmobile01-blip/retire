@@ -229,7 +229,13 @@ export default function App() {
                 setAggregatedData([]);
                 return;
             }
-            await new Promise(resolve => setTimeout(resolve, 10));
+            
+            setIsCalculating(true);
+            setProgress(0);
+            setStatus('計算中...');
+            
+            // Allow UI to update
+            await new Promise(resolve => setTimeout(resolve, 50));
 
             const costsMap = new Map<number, {
                 A: { type1: number, type2: number, type3: number, type4: number },
@@ -237,12 +243,10 @@ export default function App() {
                 payoutA: { type1: number, type2: number, type3: number, type4: number },
                 payoutB: { type1: number, type2: number, type3: number, type4: number },
                 counts: { type1: number, type2: number, type3: number, type4: number },
-                // Stock accumulator (Reserve Balance) - Primarily for base year (2025/2026-03-31)
                 stockA: { type1: number, type2: number, type3: number, type4: number },
                 stockB: { type1: number, type2: number, type3: number, type4: number }
             }>();
 
-            // 2025年度から集計開始 (期間延長: 2080まで)
             for (let y = 2025; y <= 2080; y++) {
                 costsMap.set(y, {
                     A: { type1: 0, type2: 0, type3: 0, type4: 0 },
@@ -255,50 +259,53 @@ export default function App() {
                 });
             }
 
-            data.forEach(row => {
-                // Must calculate B first to handle Adjustment Mode in A
-                const resB = runCalculation(row, configB);
-                const targetAmount = (configA.adjustmentConfig?.enabled || configA.unifyNewSystemConfig?.enabled) && resB ? resB.retirementAllowance : undefined;
-                const targetReserve = (configA.adjustmentConfig?.enabled || configA.unifyNewSystemConfig?.enabled) && resB ? resB.reserve2026 : undefined;
+            const chunkSize = 100; // Process 100 employees at a time
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
                 
-                const resA = runCalculation(row, configA, targetAmount, targetReserve);
+                chunk.forEach(row => {
+                    const resB = runCalculation(row, configB);
+                    const targetAmount = (configA.adjustmentConfig?.enabled || configA.unifyNewSystemConfig?.enabled) && resB ? resB.retirementAllowance : undefined;
+                    const targetReserve = (configA.adjustmentConfig?.enabled || configA.unifyNewSystemConfig?.enabled) && resB ? resB.reserve2026 : undefined;
+                    
+                    const resA = runCalculation(row, configA, targetAmount, targetReserve);
 
-                if (resA && resB) {
-                    // Determine System Type using unified property
-                    const typeKey = resA.typeKey;
+                    if (resA && resB) {
+                        const typeKey = resA.typeKey;
 
-                    // For counts: check if active at fiscal year end
-                    // 2025年度から集計
-                    for (let y = 2025; y <= 2080; y++) {
-                        const fiscalYearEnd = new Date(y + 1, 2, 31);
-                        if (resA.retirementDate >= fiscalYearEnd) {
-                            if(costsMap.has(y)) costsMap.get(y)!.counts[typeKey] += 1;
+                        // Optimized counts: only loop up to retirement year
+                        const rYearA = resA.retirementFiscalYear;
+                        for (let y = 2025; y <= 2080; y++) {
+                            if (y < rYearA) {
+                                if(costsMap.has(y)) costsMap.get(y)!.counts[typeKey] += 1;
+                            } else {
+                                break; // No need to check further years
+                            }
+                        }
+
+                        resA.yearlyDetails.forEach(d => { if (costsMap.has(d.year)) costsMap.get(d.year)!.A[typeKey] += d.amountInc; });
+                        resB.yearlyDetails.forEach(d => { if (costsMap.has(d.year)) costsMap.get(d.year)!.B[typeKey] += d.amountInc; });
+
+                        if (costsMap.has(rYearA)) {
+                            costsMap.get(rYearA)!.payoutA[typeKey] += resA.retirementAllowance;
+                        }
+
+                        const rYearB = resB.retirementFiscalYear;
+                        if (costsMap.has(rYearB)) {
+                            costsMap.get(rYearB)!.payoutB[typeKey] += resB.retirementAllowance;
+                        }
+
+                        if (costsMap.has(2025)) {
+                            costsMap.get(2025)!.stockA[typeKey] += resA.reserve2026;
+                            costsMap.get(2025)!.stockB[typeKey] += resB.reserve2026;
                         }
                     }
+                });
 
-                    // For costs (Provision)
-                    resA.yearlyDetails.forEach(d => { if (costsMap.has(d.year)) costsMap.get(d.year)!.A[typeKey] += d.amountInc; });
-                    resB.yearlyDetails.forEach(d => { if (costsMap.has(d.year)) costsMap.get(d.year)!.B[typeKey] += d.amountInc; });
-
-                    // For Payouts (Cash out at retirement year)
-                    const rYearA = resA.retirementFiscalYear;
-                    if (costsMap.has(rYearA)) {
-                        costsMap.get(rYearA)!.payoutA[typeKey] += resA.retirementAllowance;
-                    }
-
-                    const rYearB = resB.retirementFiscalYear;
-                    if (costsMap.has(rYearB)) {
-                        costsMap.get(rYearB)!.payoutB[typeKey] += resB.retirementAllowance;
-                    }
-
-                    // For Initial Reserve (Stock at 2026/03/31 = End of 2025)
-                    // We store this in the 2025 entry.
-                    if (costsMap.has(2025)) {
-                        costsMap.get(2025)!.stockA[typeKey] += resA.reserve2026;
-                        costsMap.get(2025)!.stockB[typeKey] += resB.reserve2026;
-                    }
-                }
-            });
+                setProgress(Math.round(((i + chunk.length) / data.length) * 100));
+                // Yield to main thread
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
 
             const sorted: AggregatedYearlyData[] = Array.from(costsMap.entries())
                 .map(([year, val]) => {
@@ -325,6 +332,8 @@ export default function App() {
                 .sort((a, b) => a.year - b.year);
             
             setAggregatedData(sorted);
+            setIsCalculating(false);
+            setStatus('待機中');
         };
 
         calculateAggregatedCosts();

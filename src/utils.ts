@@ -359,16 +359,44 @@ export const processRow = (
             initialEvalPointsInput = 0; 
         }
 
+        const tableToMap = (table: any[]) => {
+            const map = new Map<number, any>();
+            table.forEach(r => map.set(r.y, r));
+            return { map, last: table[table.length - 1] };
+        };
+
+        const m1_1 = tableToMap(masterData1_1);
+        const m1_2 = tableToMap(masterData1_2);
+        const m1_3 = tableToMap(masterData1_3);
+        const m2 = tableToMap(masterData2);
+        const mf = {
+            type1: tableToMap(masterDataFuture.type1),
+            type2: tableToMap(masterDataFuture.type2),
+            type3: tableToMap(masterDataFuture.type3),
+            type4: tableToMap(masterDataFuture.type4)
+        };
+
         const calculatePts = (yearsFloat: number, key: string, isOld: boolean, mode: string, tableOverride?: any[]) => {
             const yearInt = Math.floor(yearsFloat);
             const monthFraction = yearsFloat - yearInt; 
-            const table = tableOverride || (isOld ? targetOldMaster : masterData2);
+            
+            let tMap: { map: Map<number, any>, last: any };
+            if (tableOverride) {
+                tMap = tableToMap(tableOverride);
+            } else if (isOld) {
+                if (typeKey === 'type1') tMap = m1_1;
+                else if (typeKey === 'type2') tMap = m1_2;
+                else tMap = m1_3;
+            } else {
+                tMap = m2;
+            }
+
             const mappedKey = isOld ? (key === 'los' ? 'los1' : rankKeyOld) : key;
             
             const getVal = (y: number): number => {
                 if (y <= 0) return 0;
-                const r: any = table.find((d: any) => d.y === y) || table[table.length - 1];
-                return r[mappedKey] || 0;
+                const r = tMap.map.get(y) || tMap.last;
+                return r ? (r[mappedKey] || 0) : 0;
             };
 
             const fullYearPoints = getVal(yearInt);
